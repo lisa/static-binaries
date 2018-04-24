@@ -5,11 +5,12 @@ set -o pipefail
 set -x
 
 
-ZLIB_VERSION=1.2.8
+ZLIB_VERSION=1.2.11
 TERMCAP_VERSION=1.3.1
 READLINE_VERSION=6.3
-OPENSSL_VERSION=1.0.2c
-PYTHON_VERSION=2.7.10
+OPENSSL_VERSION=1.0.2k
+PYTHON_BASE_VERSION=2.7.15
+PYTHON_RC=rc1
 
 
 function build_zlib() {
@@ -83,10 +84,10 @@ function build_python() {
     cd /build
 
     # Download
-    curl -LO https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tar.xz
-    unxz Python-${PYTHON_VERSION}.tar.xz
-    tar -xvf Python-${PYTHON_VERSION}.tar
-    cd Python-${PYTHON_VERSION}
+    curl -LO https://www.python.org/ftp/python/${PYTHON_BASE_VERSION}/Python-${PYTHON_BASE_VERSION}${PYTHON_RC}.tar.xz
+    unxz Python-${PYTHON_BASE_VERSION}${PYTHON_RC}.tar.xz
+    tar -xvf Python-${PYTHON_BASE_VERSION}${PYTHON_RC}.tar
+    cd Python-${PYTHON_BASE_VERSION}${PYTHON_RC}
 
     # Set up modules
     cp Modules/Setup.dist Modules/Setup
