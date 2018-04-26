@@ -1,4 +1,4 @@
-FROM andrewd/musl-cross
+FROM lisa/musl-cross:1.1.19
 MAINTAINER Andrew Dunham <andrew@du.nham.ca>
 
 RUN apt-get update && apt-get install -y zip

@@ -109,9 +109,13 @@ function build_python() {
         -e "s|^zlib zlibmodule.c|zlib zlibmodule.c -I/build/zlib-${ZLIB_VERSION} -L/build/zlib-${ZLIB_VERSION} -lz|" \
         -e "s|^readline readline.c|readline readline.c -I/build/readline-${READLINE_VERSION} -L/build/readline-${READLINE_VERSION} -L/build/termcap-${TERMCAP_VERSION} -lreadline -ltermcap|" \
         Modules/Setup
-    # static compile this module. Any others that `setup.py` might want to
-    # build shared should follow this pattern
-    echo "_lsprof rotatingtree.c _lsprof.c" >> Modules/Setup
+    # static compile these modules. Any others that `setup.py` might want to
+    # build "shared" should follow this pattern to make them included
+    echo "" >> Modules/Setup
+    cat << 'EOF' >>Modules/Setup
+_lsprof rotatingtree.c _lsprof.c
+pyexpat expat/xmlparse.c expat/xmlrole.c expat/xmltok.c pyexpat.c -I$(srcdir)/Modules/expat -DHAVE_EXPAT_CONFIG_H -DUSE_PYEXPAT_CAPI -DHAVE_SYSCALL_GETRANDOM
+EOF
 
     # Enable OpenSSL support
     patch --ignore-whitespace -p1 < /build/cpython-enable-openssl.patch
@@ -128,9 +132,13 @@ function build_python() {
       --disable-shared
 
     # Build
-    make --trace -j4 LDFLAGS="-static" LINKFORSHARED=" " 
+    make --trace -j4 LDFLAGS="-static" LINKFORSHARED=" "
 
-    /opt/cross/x86_64-linux-musl/bin/x86_64-linux-musl-strip python
+    /opt/cross/x86_64-linux-musl/bin/x86_64-linux-musl-strip python 
+    # There may be a better way to ensure _sysconfigdata.py is included in the
+    # .zip file, but I am not sure how best to do it, so this is a bit of a
+    # hack, banking on the contents of this container staying around for it
+    # to matter.
     cp $(find . -name _sysconfigdata.py -print) Lib
     cd Lib && zip -r ../python2.7.zip .
 }
