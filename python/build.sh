@@ -109,23 +109,30 @@ function build_python() {
         -e "s|^zlib zlibmodule.c|zlib zlibmodule.c -I/build/zlib-${ZLIB_VERSION} -L/build/zlib-${ZLIB_VERSION} -lz|" \
         -e "s|^readline readline.c|readline readline.c -I/build/readline-${READLINE_VERSION} -L/build/readline-${READLINE_VERSION} -L/build/termcap-${TERMCAP_VERSION} -lreadline -ltermcap|" \
         Modules/Setup
+    # static compile this module. Any others that `setup.py` might want to
+    # build shared should follow this pattern
+    echo "_lsprof rotatingtree.c _lsprof.c" >> Modules/Setup
 
     # Enable OpenSSL support
     patch --ignore-whitespace -p1 < /build/cpython-enable-openssl.patch
+
     sed -i \
         -e "s|^SSL=/build/openssl-TKTK|SSL=/build/openssl-${OPENSSL_VERSION}|" \
         Modules/Setup
 
     # Configure
     CC='/opt/cross/x86_64-linux-musl/bin/x86_64-linux-musl-gcc -static -fPIC' \
-        CXX='/opt/cross/x86_64-linux-musl/bin/x86_64-linux-musl-g++ -static -static-libstdc++ -fPIC' \
-        LD=/opt/cross/x86_64-linux-musl/bin/x86_64-linux-musl-ld \
-        ./configure \
-            --disable-shared
+    CXX='/opt/cross/x86_64-linux-musl/bin/x86_64-linux-musl-g++ -static -static-libstdc++ -fPIC' \
+    LD=/opt/cross/x86_64-linux-musl/bin/x86_64-linux-musl-ld \
+    ./configure \
+      --disable-shared
 
     # Build
-    make -j4
+    make --trace -j4 LDFLAGS="-static" LINKFORSHARED=" " 
+
     /opt/cross/x86_64-linux-musl/bin/x86_64-linux-musl-strip python
+    cp $(find . -name _sysconfigdata.py -print) Lib
+    cd Lib && zip -r ../python2.7.zip .
 }
 
 function doit() {
@@ -140,11 +147,16 @@ function doit() {
     then
         OUT_DIR=/output/`uname | tr 'A-Z' 'a-z'`/`uname -m`
         mkdir -p $OUT_DIR
-        cp python $OUT_DIR/
+        cp /build/Python-${PYTHON_BASE_VERSION}${PYTHON_RC}/{python,python2.7.zip} $OUT_DIR/
         echo "** Finished **"
     else
         echo "** /output does not exist **"
     fi
+#    while true
+#    do
+#      sleep 3600
+#    done
+
 }
 
 doit
