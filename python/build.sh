@@ -150,21 +150,17 @@ function doit() {
     build_openssl
     build_python
 
-    # Copy to output
-    if [ -d /output ]
-    then
-        OUT_DIR=/output/`uname | tr 'A-Z' 'a-z'`/`uname -m`
-        mkdir -p $OUT_DIR
-        cp /build/Python-${PYTHON_BASE_VERSION}${PYTHON_RC}/{python,python2.7.zip} $OUT_DIR/
-        echo "** Finished **"
-    else
-        echo "** /output does not exist **"
-    fi
-#    while true
-#    do
-#      sleep 3600
-#    done
+
+		mkdir -p /output
+		cp /build/Python-${PYTHON_BASE_VERSION}${PYTHON_RC}/{python,python2.7.zip} /output
+
 
 }
 
 doit
+
+echo "Output:"
+ls -l /output
+echo "Done."
+
+
