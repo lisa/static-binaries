@@ -20,7 +20,6 @@ ENV \
   PYTHONHOME=/python2.7.zip \
   PYTHONPATH=/python2.7.zip
 
-# In an ideal world this would call /entrypoint.py which will be implemented by the user.
-# so consider that a FIXME.
-CMD [ "/python", "-s", "-S" ]
+# Users of this base image should be sure to COPY their entrypoint.py to /entrypoint.py
+CMD [ "/python", "-s", "-S", "/entrypoint.py" ]
 
