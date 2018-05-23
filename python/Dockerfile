@@ -16,6 +16,11 @@ FROM scratch
 MAINTAINER Lisa Seelye <lisa@thedoh.com>
 WORKDIR /
 COPY --from=0 /output/python* /
+
+# just in case things need them to exist, like flask
+COPY passwd /etc/passwd
+COPY group /etc/group
+
 ENV \
   PYTHONHOME=/python2.7.zip \
   PYTHONPATH=/python2.7.zip

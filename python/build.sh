@@ -10,7 +10,32 @@ TERMCAP_VERSION=1.3.1
 READLINE_VERSION=6.3
 OPENSSL_VERSION=1.0.2k
 PYTHON_BASE_VERSION=2.7.15
+PSUTIL_VERSION=5.4.5
 PYTHON_RC=rc1
+
+CPU_COUNT=$(nproc --all 2>/dev/null)
+MAKE_J="-j${CPU_COUNT:-1}"
+
+function fetch_psutil() {
+  cd /build
+  curl -L -o /build/psutil-${PSUTIL_VERSION}.zip https://github.com/giampaolo/psutil/archive/release-${PSUTIL_VERSION}.zip
+  unzip /build/psutil-${PSUTIL_VERSION}.zip
+  mv psutil-release-${PSUTIL_VERSION} psutil-${PSUTIL_VERSION}
+  # Prune out the Python files from the C files and then monkeypatch the
+  # Python files
+  mkdir -p psutil/{c_files,python_files}
+  cp -r /build/psutil-${PSUTIL_VERSION}/psutil psutil/c_files/
+	rm -rf psutil/c_files/psutil/*.py* psutil/c_files/psutil/DEVNOTES psutil/c_files/psutil/tests
+  # Python files
+  cp -r /build/psutil-${PSUTIL_VERSION}/psutil psutil/python_files/
+  rm -rf psutil/python_files/psutil/*.c psutil/python_files/psutil/*.h psutil/python_files/psutil/arch psutil/python_files/psutil/tests
+  # Patch now
+  cd psutil
+  patch --ignore-whitespace -p0 < /build/psutil_import__init__.patch
+  patch --ignore-whitespace -p0 < /build/psutil_import_pslinux.patch
+  cd ..
+  # Ready to be copied for Lib
+}
 
 
 function build_zlib() {
@@ -25,7 +50,7 @@ function build_zlib() {
     CC='/opt/cross/x86_64-linux-musl/bin/x86_64-linux-musl-gcc -static -fPIC' \
         ./configure \
         --static
-    make -j4
+    make ${MAKE_J}
 }
 
 function build_termcap() {
@@ -41,7 +66,7 @@ function build_termcap() {
         ./configure \
         --disable-shared \
         --enable-static
-    make -j4
+    make ${MAKE_J}
 }
 
 function build_readline() {
@@ -57,7 +82,7 @@ function build_readline() {
         ./configure \
         --disable-shared \
         --enable-static
-    make -j4
+    make ${MAKE_J}
 
     # Note that things look for readline in <readline/readline.h>, so we need
     # that directory to exist.
@@ -89,6 +114,13 @@ function build_python() {
     tar -xvf Python-${PYTHON_BASE_VERSION}${PYTHON_RC}.tar
     cd Python-${PYTHON_BASE_VERSION}${PYTHON_RC}
 
+    # Copy psutil source code into place
+    mkdir Modules/psutil
+    cp -r /build/psutil/c_files/psutil/* Modules/psutil/
+    # Convert the version to what psutil expects. This should be stable until
+    # their setup.py changes.
+    psversion=$(echo $PSUTIL_VERSION | sed 's,\.,,g')
+
     # Set up modules
     cp Modules/Setup.dist Modules/Setup
     MODULES="_bisect _collections _csv _datetime _elementtree _functools _heapq _io _md5 _posixsubprocese _random _sha _sha256 _sha512 _socket _struct _weakref array binascii cmath cStringIO cPickle datetime fcntl future_builtins grp itertools math mmap operator parser readline resource select spwd strop syslog termios time unicodedata zlib"
@@ -115,13 +147,20 @@ function build_python() {
     cat << 'EOF' >>Modules/Setup
 _lsprof rotatingtree.c _lsprof.c
 pyexpat expat/xmlparse.c expat/xmlrole.c expat/xmltok.c pyexpat.c -I$(srcdir)/Modules/expat -DHAVE_EXPAT_CONFIG_H -DUSE_PYEXPAT_CAPI -DHAVE_SYSCALL_GETRANDOM
+_psutil_linux psutil/_psutil_common.c psutil/_psutil_posix.c psutil/_psutil_linux.c -DPSUTIL_POSIX=1 -DPSUTIL_VERSION=__PSVER__ -DPSUTIL_LINUX=1
+_psutil_posix psutil/_psutil_common.c psutil/_psutil_posix.c                        -DPSUTIL_POSIX=1 -DPSUTIL_VERSION=__PSVER__ -DPSUTIL_LINUX=1
 EOF
 
     # Enable OpenSSL support
     patch --ignore-whitespace -p1 < /build/cpython-enable-openssl.patch
 
+    # Fix https://bugs.python.org/issue7938
+    echo "Patching for https://bugs.python.org/issue7938"
+    patch --ignore-whitespace -p0 < /build/BPO-7938_pr4338-fix-makesetup-script.patch
+
     sed -i \
         -e "s|^SSL=/build/openssl-TKTK|SSL=/build/openssl-${OPENSSL_VERSION}|" \
+        -e "s|__PSVER__|${psversion}|g"                                        \
         Modules/Setup
 
     # Configure
@@ -132,7 +171,8 @@ EOF
       --disable-shared
 
     # Build
-    make --trace -j4 LDFLAGS="-static" LINKFORSHARED=" "
+    make --trace ${MAKE_J} LDFLAGS="-static" LINKFORSHARED=" " || true
+
 
     /opt/cross/x86_64-linux-musl/bin/x86_64-linux-musl-strip python 
     # There may be a better way to ensure _sysconfigdata.py is included in the
@@ -140,21 +180,22 @@ EOF
     # hack, banking on the contents of this container staying around for it
     # to matter.
     cp $(find . -name _sysconfigdata.py -print) Lib
+    # Copy the patched psutil Python files into place
+    cp -r /build/psutil/python_files/psutil Lib
     cd Lib && zip -r ../python2.7.zip .
+
 }
 
 function doit() {
+    fetch_psutil
     build_zlib
     build_termcap
     build_readline
     build_openssl
     build_python
 
-
 		mkdir -p /output
 		cp /build/Python-${PYTHON_BASE_VERSION}${PYTHON_RC}/{python,python2.7.zip} /output
-
-
 }
 
 doit
