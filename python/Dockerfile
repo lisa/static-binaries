@@ -1,4 +1,4 @@
-FROM lisa/musl-cross:1.1.19
+FROM thedoh/musl-cross:1.1.19
 MAINTAINER Lisa Seelye <lisa@thedoh.com>
 # Upstream maintainer:
 #MAINTAINER Andrew Dunham <andrew@du.nham.ca>
