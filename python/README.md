@@ -61,6 +61,8 @@ A common use case will be to `pip install` some set of requirements for use. Sin
 
 ## Entrypoint.py
 
+This base image's `CMD` is `/python -s -S /entrypoint.py`; the latter not being supplied by base image. It's expected that the image using this base image will provide the `entrypoint.py`. What might some look like? Look at https://github.com/lisa/docker-sample-static-python for deeper details. However, in brief:
+
 A sample `entrypoint.py` to call an app using Factory pattern might be:
 
     import sys
